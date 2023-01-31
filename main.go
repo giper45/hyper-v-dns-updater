@@ -7,7 +7,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
-
+	"fmt"
 	"github.com/abdfnx/gosh"
 )
 
@@ -15,7 +15,6 @@ const HOSTS_FILE string = "C:\\Windows\\System32\\drivers\\etc\\hosts"
 
 func GetVmInfo() (error, string, string) {
 	return gosh.PowershellOutput(`get-vm | ?{$_.State -eq "Running"} | select -ExpandProperty networkadapters | select vmname, ipaddresses | ConvertTo-Json`)
-
 }
 
 func GetMap(input string) map[string]string {
@@ -55,14 +54,12 @@ func updateOrAddLine(fileName string, newLine string) error {
 		return err
 	}
 	defer file.Close()
-
 	scanner := bufio.NewScanner(file)
 	var lines []string
 	updated := false
 	newFields := strings.Fields(newLine)
 	// newIP := newFields[0]
 	newName := newFields[1]
-
 	for scanner.Scan() {
 		line := scanner.Text()
 		fields := strings.Fields(line)
@@ -94,15 +91,21 @@ func updateOrAddLine(fileName string, newLine string) error {
 	writer.Flush()
 	return nil
 }
+
 func main() {
 	err, output, errout := GetVmInfo()
 	HandleErr(err, errout)
+
+	if !strings.HasPrefix(output, "[") || !strings.HasSuffix(output, "]") {
+		output = "[" + output + "]"
+	}
+	
 	var machines []Vm
 	json.Unmarshal([]byte(output), &machines)
+	fmt.Println("Machines: ", machines)
 	for _, v := range machines {
 		line := v.IPAddresses[0] + "\t" + v.VmName
 		err := updateOrAddLine(HOSTS_FILE, line)
 		HandleErr(err, "")
 	}
-
 }
